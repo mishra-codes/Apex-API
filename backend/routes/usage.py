@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timedelta
@@ -9,7 +9,7 @@ import jwt
 
 router = APIRouter(prefix="/api", tags=["analytics"])
 
-def get_current_user(authorization: str = None, db: Session = None) -> User:
+def get_current_user(authorization: str = Header(None), db: Session = Depends(get_db)) -> User:
     if not authorization:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, 
@@ -29,6 +29,11 @@ def get_current_user(authorization: str = None, db: Session = None) -> User:
             status_code=status.HTTP_401_UNAUTHORIZED, 
             detail=str(e)
             )
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token format"
+        )
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(
@@ -39,45 +44,63 @@ def get_current_user(authorization: str = None, db: Session = None) -> User:
 @router.get("/analytics/summary")
 def get_analytics_summary(
     days: int = 30, 
-    authorization: str = None, 
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)):
-    user = get_current_user(authorization, db)
+    
     start_date = datetime.utcnow() - timedelta(days=days)
     logs = db.query(TokenLog).filter(TokenLog.user_id == user.id, TokenLog.timestamp >= start_date).all()
+    
     total_tokens = sum(log.tokens_used for log in logs)
     total_cost = sum(float(log.cost_estimate or 0) for log in logs)
-    breakdown = {}
+    
+    api_breakdown = {}
     for log in logs:
         api = log.api_name
-        if api not in breakdown:
-            breakdown[api] = {"tokens": 0, "cost": 0.0}
-        breakdown[api]["tokens"] += log.tokens_used
-        breakdown[api]["cost"] += float(log.cost_estimate or 0)
-    return {"total_tokens": total_tokens, "total_cost": round(total_cost, 6), "breakdown_by_api": breakdown, "period_days": days}
+        if api not in api_breakdown:
+            api_breakdown[api] = 0
+        api_breakdown[api] += log.tokens_used
+    
+    return {
+        "total_tokens": total_tokens, 
+        "total_cost": round(total_cost, 6), 
+        "api_breakdown": api_breakdown, 
+        "api_count": len(api_breakdown),
+        "period_days": days
+    }
 
 @router.get("/analytics/timeline")
 def get_analytics_timeline(
     days: int = 30, 
-    authorization: str = None, 
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
     ):
-    user = get_current_user(authorization, db)
+    
     start_date = datetime.utcnow() - timedelta(days=days)
-    logs = db.query(func.date(TokenLog.timestamp).label("date"), 
-                    func.sum(TokenLog.tokens_used).label("tokens"), 
-                    func.sum(TokenLog.cost_estimate).label("cost")).filter(TokenLog.user_id == user.id, TokenLog.timestamp >= start_date).group_by(func.date(TokenLog.timestamp)).order_by("date").all()
-    timeline = [{"date": str(log.date), 
-                 "tokens": log.tokens or 0, 
-                 "cost": round(float(log.cost or 0), 6)} for log in logs]
+    logs = db.query(
+        func.date(TokenLog.timestamp).label("date"), 
+        func.sum(TokenLog.tokens_used).label("tokens"), 
+        func.sum(TokenLog.cost_estimate).label("cost")
+    ).filter(
+        TokenLog.user_id == user.id, 
+        TokenLog.timestamp >= start_date
+    ).group_by(
+        func.date(TokenLog.timestamp)
+    ).order_by("date").all()
+    
+    timeline = [
+        {
+            "date": str(log.date), 
+            "tokens": log.tokens or 0, 
+            "cost": round(float(log.cost or 0), 6)
+        } for log in logs
+    ]
     return timeline
 
 @router.get("/user/profile")
-def get_user_profile(
-    authorization: str = None, db: Session = Depends(get_db)):
-    user = get_current_user(authorization, db)
+def get_user_profile(user: User = Depends(get_current_user)):
     return {
-            "id": user.id, 
-            "email": user.email, 
-            "tier": user.tier, 
-            "created_at": user.created_at
-            }
+        "id": user.id, 
+        "email": user.email, 
+        "tier": user.tier, 
+        "created_at": user.created_at
+    }

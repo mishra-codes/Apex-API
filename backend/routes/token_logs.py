@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status , Header
+from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from database import get_db
@@ -9,7 +9,7 @@ import jwt
 
 router = APIRouter(prefix="/api", tags=["token_logs"])
 
-def get_current_user(authorization: str = None, db: Session = None) -> User:
+def get_current_user(authorization: str = Header(None), db: Session = Depends(get_db)) -> User:
     if not authorization:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -29,6 +29,12 @@ def get_current_user(authorization: str = None, db: Session = None) -> User:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e)
             )
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token format"
+        )
+    
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(
@@ -40,11 +46,10 @@ def get_current_user(authorization: str = None, db: Session = None) -> User:
 @router.post("/token-logs", response_model=TokenLogResponse)
 def log_token_usage(
     log_data: TokenLogCreate, 
-    authorization: str = Header(None), 
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
     ):
 
-    user = get_current_user(authorization, db)
     token_log = TokenLog(
         user_id=user.id, 
         api_name=log_data.api_name, 
@@ -62,11 +67,10 @@ def log_token_usage(
 @router.get("/token-logs")
 def get_token_logs(
     days: int = 7, 
-    authorization: str = Header(None), 
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
     ):
 
-    user = get_current_user(authorization, db)
     start_date = datetime.utcnow() - timedelta(days=days)
     logs = db.query(TokenLog).filter(
         TokenLog.user_id == user.id, 
