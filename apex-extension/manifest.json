@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Apex API Tracker",
+  "version": "1.0.0",
+  "description": "Track your LLM API token usage across Groq, Cohere, OpenAI, Anthropic, and Ollama",
+  "permissions": [
+    "webRequest",
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://api.groq.com/*",
+    "https://api.cohere.com/*",
+    "https://api.openai.com/*",
+    "https://api.anthropic.com/*",
+    "http://localhost:11434/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Apex API Tracker"
+  }
+}
