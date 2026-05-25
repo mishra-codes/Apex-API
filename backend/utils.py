@@ -3,8 +3,11 @@ from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from config import settings
 
-# Password hashing - using Argon2 (no 72-byte limit)
-pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+# Password hashing - support both argon2 (new) and bcrypt (legacy)
+pwd_context = CryptContext(
+    schemes=["argon2", "bcrypt"],
+    deprecated="bcrypt"
+)
 
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
