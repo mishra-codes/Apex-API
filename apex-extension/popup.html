@@ -205,18 +205,36 @@
                 <p><strong>Email:</strong> <span id="userEmail"></span></p>
                 <p><strong>Status:</strong> <span style="color: #16a34a; font-weight: 600;">✓ Tracking</span></p>
             </div>
-            
+
             <div class="stats">
-                <div class="stat">
-                    <span>Status</span>
-                    <span class="stat-value">Active</span>
-                </div>
-                <div class="stat">
-                    <span>Backend</span>
-                    <span class="stat-value">localhost:8000</span>
-                </div>
-            </div>
-            
+
+    <div class="stat">
+        <span>Total Tokens</span>
+        <span class="stat-value" id="totalTokens">0</span>
+    </div>
+
+    <div class="stat">
+        <span>Total Cost</span>
+        <span class="stat-value" id="totalCost">$0.00</span>
+    </div>
+
+    <div class="stat">
+        <span>Total Requests</span>
+        <span class="stat-value" id="totalRequests">0</span>
+    </div>
+
+    <div class="stat">
+        <span>Top Provider</span>
+        <span class="stat-value" id="topProvider">-</span>
+    </div>
+
+    <div class="stat">
+        <span>Backend</span>
+        <span class="stat-value">Connected</span>
+    </div>
+
+        </div>
+           
             <button id="logoutBtn" class="logout-btn" style="margin-top: 15px;">Logout</button>
         </div>
     </div>
